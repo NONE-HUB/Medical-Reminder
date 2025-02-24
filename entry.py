@@ -2,6 +2,8 @@ import tkinter
 from tkinter import ttk
 from tkinter import messagebox
 import tkinter.messagebox
+import os
+import openpyxl
 
 def enter_data():
     accepted = accept_var.get()
@@ -32,7 +34,20 @@ def enter_data():
             print("# Semester:" , numsemester)
             print("Registration status:", registered_status)
             print("-------------------------------------------------------")
-        
+
+            filepath = r"C:\Users\cis-c\OneDrive\Desktop\Medical-Reminder\data.xlsx"
+
+            if not os.path.exists(filepath):
+                workbook = openpyxl.Workbook()
+                sheet = workbook.active
+                heading = ["First Name" , "Middle Name" , "Last Name" , "Title" , "Age" , "Nationality" , "#Courses" , "#Semester" , "Registration Status"]
+                sheet.append(heading)
+                workbook.save(filepath)
+            workbook = openpyxl.load_workbook(filepath)
+            sheet = workbook.active
+            sheet.append([firstname , middelname , lastname , title , age , nationality , numcourses , numsemester , registered_status])
+            workbook.save(filepath)
+
         else:
             tkinter.messagebox.showwarning(title="Error", message="First name and middle name and last name are required")
     
