@@ -21,8 +21,6 @@ root.minsize(400, 400)
 
 user_db_file = "users.json"
 
-PASSWORD_FILE = "password.json"
-
 def load_users():
     try:
         with open(user_db_file , "r") as file:
@@ -36,16 +34,12 @@ def save_users(users):
         json.dump(users , file)     
 
 def get_stored_password():
-    if os.path.exists(PASSWORD_FILE):
-        with open(PASSWORD_FILE, "r") as file:
-            data = json.load(file)
-            return data.get("password", None)  
-    return None 
-
-# Function to save password
-def save_password(password):
-    with open(PASSWORD_FILE, "w") as file:
-        json.dump({"password": password}, file)
+    try:
+        with open("password.txt", "r") as file:
+            password = file.read().strip()
+            return password
+    except FileNotFoundError:
+            return ""  
 
 image_path=PhotoImage(file=r"C:\Users\cis-c\OneDrive\Desktop\image\background_image.png")
 
@@ -69,7 +63,7 @@ def signin_screen():
         accepted = accept_var.get()
 
         if accepted=="Accepted":
-            #user info
+            
             firstname = first_name_entry.get()
             middelname = middle_name_entry.get()
             lastname = last_name_entry.get()
@@ -79,7 +73,6 @@ def signin_screen():
                 age = age_spinbox.get()
                 nationality = nationality_combobox.get()
 
-                #course info
                 registered_status = reg_status_var.get()
                 username = username_entry.get()
                 password = current_password_entry.get()
@@ -147,9 +140,6 @@ def signin_screen():
         save_users(users)
         messagebox.showinfo("Success" , "User registered successfully")
 
-        register.mainloop()
-
-    #saving user info
     user_info_frame = tkinter.LabelFrame(frame, text = "User Information")
     user_info_frame.grid(row=0 , column=0, padx=20, pady=10)
 
@@ -189,7 +179,6 @@ def signin_screen():
     for widget in user_info_frame.winfo_children():
         widget.grid_configure(padx=10, pady=5)
 
-    #saving course info
     courses_frame = tkinter.LabelFrame(frame)
     courses_frame.grid(row=1, column=0, sticky="news", padx=20, pady=10)
 
@@ -217,7 +206,6 @@ def signin_screen():
     for widget in courses_frame.winfo_children():
         widget.grid_configure(padx=10 ,pady=5)
 
-    #Accept terms
     terms_frame = tkinter.LabelFrame(frame, text = "Terms and Condition")
     terms_frame.grid(row=2, column=0, sticky="news", padx=20, pady=10,)
 
@@ -229,7 +217,6 @@ def signin_screen():
         signin_screen.destroy()
         root.deiconify()
 
-    #Button
     button = tkinter.Button(frame, text = "Enter data", command=enter_data)
     button.grid(row=3 , column=0, sticky="news", padx=20, pady=10)
 
@@ -240,8 +227,6 @@ def signin_screen():
     butoon_back.grid(row=5,column=0, sticky="news",padx=20,pady=10)
 
     signin_screen.mainloop()
-
-
 
 def home_page():
     home_page = Toplevel(root)
@@ -256,20 +241,12 @@ def home_page():
     frame = Frame(home_page, width =800 , height = 500 , bg = "white")
     frame.place(x=370, y=180)
 
-    def home():
-        home = Toplevel(root)
-        home.title("Welcome")
-        home.geometry(f"{screen_width}x{screen_height}")
-        home.minsize(400, 400) 
-
-        image_path=PhotoImage(file=r"C:\Users\cis-c\OneDrive\Desktop\image\background_image.png")
-        bg_image=Label(home, image=image_path)
-        bg_image.place(relheight=1,relwidth=1)
-
-        frame = Frame(home, width =800 , height = 500 , bg = "white")
-        frame.place(x=370, y=180)
-
-        home.mainloop()
+    
+    global global_username, global_password
+    global_username = username_entry.get()
+    global_password = current_password_entry.get()
+    print(f"Username: {global_username}")
+    print(f"Password: {global_password}")
 
     def reminder():
         reminder = Toplevel(root)
@@ -300,7 +277,6 @@ def home_page():
 
         initialize_db()
 
-        # Fetch all medicines
         def get_medicines():
             conn = sqlite3.connect("medicine.db")
             cursor = conn.cursor()
@@ -309,7 +285,6 @@ def home_page():
             conn.close()
             return data
 
-        # Convert 24-hour format to AM/PM
         def format_time(time_str):
             try:
                 return datetime.strptime(time_str, "%H:%M").strftime("%I:%M %p")
@@ -336,6 +311,10 @@ def home_page():
             name = name_entry.get()  
             dose = dose_var.get()  
             frequency = frequency_var.get() 
+
+            if len(get_medicines()) >= 5:
+                messagebox.showerror("Error", "Only 5 medicines can be added!")
+                return
             
 
             days = ",".join([day for day, var in days_vars.items() if var.get()]) if frequency == "Selected Days" else ""
@@ -353,12 +332,102 @@ def home_page():
             cursor.execute("INSERT INTO medicines (name, dose, frequency, days, times) VALUES (?, ?, ?, ?, ?)",
                         (name, dose, frequency, days, times))
             conn.commit()
-
-            messagebox.showinfo("Success", "Medicine added successfully!")
+            conn.close()
+           
+            refresh_display()
 
             add_window.destroy()
 
+        def delete_medicine(med_id):
+            conn = sqlite3.connect("medicine.db")
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM medicines WHERE id=?", (med_id,))
+            conn.commit()
+            conn.close()
             refresh_display()
+
+        def edit_medicine(med_id):
+
+            conn = sqlite3.connect("medicine.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM medicines WHERE id=?", (med_id,))
+            med = cursor.fetchone()
+            conn.close()
+
+            open_edit_window(med)
+
+        def open_edit_window(med):
+            global edit_window, edit_name_entry, edit_dose_var, edit_frequency_var, edit_days_vars, edit_time_vars, edit_time_labels, edit_day_frame
+
+            edit_window = tk.Toplevel(root)
+            edit_window.title("Edit Medicine")
+            edit_window.geometry("400x500")
+
+            med_id, name, dose, frequency, days, times, status = med
+
+            tk.Label(edit_window, text="Medicine Name:").pack()
+            edit_name_entry = tk.Entry(edit_window)
+            edit_name_entry.insert(0, name)
+            edit_name_entry.pack()
+
+            tk.Label(edit_window, text="Frequency:").pack()
+            edit_frequency_var = ttk.Combobox(edit_window, values=["Daily", "Selected Days"])
+            edit_frequency_var.set(frequency)
+            edit_frequency_var.pack()
+            edit_frequency_var.bind("<<ComboboxSelected>>", update_days_visibility)
+
+            edit_days_vars = {}
+            edit_day_frame = tk.Frame(edit_window)
+            for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+                edit_days_vars[day] = tk.IntVar()
+                if days and day in days.split(","):
+                    edit_days_vars[day].set(1)
+                tk.Checkbutton(edit_day_frame, text=day, variable=edit_days_vars[day]).pack(side=tk.LEFT)
+
+            if frequency == "Selected Days":
+                edit_day_frame.pack()
+
+            tk.Label(edit_window, text="Dose:").pack()
+            edit_dose_var = ttk.Combobox(edit_window, values=["1 pill", "2 pills", "3 pills"])
+            edit_dose_var.set(dose)
+            edit_dose_var.pack()
+            edit_dose_var.bind("<<ComboboxSelected>>", update_dose_times)
+
+            edit_time_vars = []
+            edit_time_labels = []
+            times_list = times.split(",")
+            for i in range(3):
+                edit_time_labels.append(tk.Label(edit_window, text=f"Dose {i+1} Time:"))
+                edit_time_vars.append(ttk.Combobox(edit_window, values=[f"{h:02d}:{m:02d}" for h in range(24) for m in range(0, 60, 15)]))
+                if i < len(times_list):
+                    edit_time_vars[i].set(times_list[i])
+                edit_time_labels[i].pack()
+                edit_time_vars[i].pack()
+
+            tk.Button(edit_window, text="Save", command=lambda: save_edited_medicine(med_id), bg="green", fg="white").pack(pady=10)
+            tk.Button(edit_window, text="Cancel", command=edit_window.destroy, bg="red", fg="white").pack()
+
+        def save_edited_medicine(med_id):
+            name = edit_name_entry.get()
+            dose = edit_dose_var.get()
+            frequency = edit_frequency_var.get()
+            days = ",".join([day for day, var in edit_days_vars.items() if var.get()]) if frequency == "Selected Days" else ""
+            selected_dose = int(dose[0])
+            times = ",".join([edit_time_vars[i].get() for i in range(selected_dose)])
+
+            if not (name and dose and frequency and times):
+                messagebox.showerror("Error", "Please fill all fields.")
+                return
+
+            conn = sqlite3.connect("medicine.db")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE medicines SET name=?, dose=?, frequency=?, days=?, times=? WHERE id=?",
+                        (name, dose, frequency, days, times, med_id))
+            conn.commit()
+            conn.close()
+            edit_window.destroy()
+            refresh_display()
+
 
         def refresh_display():
             for widget in frame.winfo_children():
@@ -379,6 +448,12 @@ def home_page():
                         formatted_time = format_time(time.strip())
                         tk.Label(frame, text=f"{i+1}st Dose: {formatted_time}", font=("Arial", 10), bg="#f0f0f0").pack()
                     
+                    button_frame = tk.Frame(frame, bg="#f0f0f0")
+                    button_frame.pack()
+                    tk.Button(button_frame, text="Delete", command=lambda med_id=med_id: delete_medicine(med_id), bg="red", fg="white").pack(side=tk.LEFT, padx=5)
+                    tk.Button(button_frame, text="Edit", command=lambda med_id=med_id: edit_medicine(med_id), bg="blue", fg="white").pack(side=tk.LEFT, padx=5)
+            
+
                     tk.Label(frame, text="-----------------------------", bg="#f0f0f0").pack()
             else:
                 tk.Label(frame, text="No medicines added.", font=("Arial", 12, "italic"), bg="#f0f0f0").pack()
@@ -388,7 +463,7 @@ def home_page():
             
             add_window = tk.Toplevel(root)
             add_window.title("Add Medicine")
-            add_window.geometry("400x500")
+            add_window.geometry("600x600")
             
             tk.Label(add_window, text="Medicine Name:").pack()
             name_entry = tk.Entry(add_window)
@@ -424,65 +499,10 @@ def home_page():
 
         refresh_display()
 
-        tk.Button(frame, text="Refresh", command=refresh_display, fg="black" , border =0 , bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",15) , justify="center").pack(pady=10)
-        tk.Button(frame, text="Add Medicine", command=open_add_window, fg="black" , border =0 , bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",) , justify="center").pack(pady=5)
+        tk.Button(reminder, text="Refresh", command=refresh_display, fg="black" , border=0,  bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",15) , justify="center").place(x=650,y=50)
+        tk.Button(reminder, text="Add Medicine", command=open_add_window, fg="black" , border=0,  bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",) , justify="center").place(x=750,y=50)
 
         reminder.mainloop()
-
-    def history():
-        history = Toplevel(root)
-        history.title("Welcome")
-        history.geometry(f"{screen_width}x{screen_height}")
-        history.minsize(400, 400) 
-
-        image_path=PhotoImage(file=r"C:\Users\cis-c\OneDrive\Desktop\image\background_image.png")
-        bg_image=Label(history, image=image_path)
-        bg_image.place(relheight=1,relwidth=1)
-
-        frame = Frame(history, width =800 , height = 500 , bg = "white")
-        frame.place(x=370, y=180)
-
-        def change_password():
-            global USER_PASSWORD
-            current = current_password_entry.get()
-            new = new_password_entry.get()
-            confirm = confirm_password_entry.get()
-
-            if current != USER_PASSWORD:
-                messagebox.showerror("Error", "Current password is incorrect!")
-                return
-
-            if new == "":
-                messagebox.showerror("Error", "New password cannot be empty!")
-                return
-
-            if new != confirm:
-                messagebox.showerror("Error", "New passwords do not match!")
-                return
-
-            # Update password in file
-            save_password(new)
-            USER_PASSWORD = new  # Update global variable
-            messagebox.showinfo("Success", "Password changed successfully!")
-            history.destroy()  # Close window after changing password
-
-        USER_PASSWORD = get_stored_password()
-
-        tk.Label(frame, text="Current Password:").pack()
-        current_password_entry = tk.Entry(frame)
-        current_password_entry.pack()
-
-        tk.Label(frame, text="New Password:").pack()
-        new_password_entry = tk.Entry(frame)
-        new_password_entry.pack()
-
-        tk.Label(frame, text="Confirm New Password:").pack()
-        confirm_password_entry = tk.Entry(frame)
-        confirm_password_entry.pack()
-
-        tk.Button(frame, text="Change Password", command=change_password).pack()
-
-        history.mainloop()
 
     def setting():
         setting = Toplevel(root)
@@ -497,31 +517,137 @@ def home_page():
         frame = Frame(setting, width =800 , height = 500 , bg = "white")
         frame.place(x=370, y=180)
 
+        def change_page():
+            change_page = Toplevel(root)
+            change_page.title("Welcome")
+            change_page.geometry(f"{screen_width}x{screen_height}")
+            change_page.minsize(400, 400) 
+
+            image_path=PhotoImage(file=r"C:\Users\cis-c\OneDrive\Desktop\image\background_image.png")
+            bg_image=Label(change_page, image=image_path)
+            bg_image.place(relheight=1,relwidth=1)
+
+            frame = Frame(change_page, width =800 , height = 500 , bg = "white")
+            frame.place(x=370, y=180)
+
+            def change_password():
+                current_password = current_password_entry.get()
+                new_password = new_password_entry.get()
+                confirm_password = confirm_password_entry.get()
+
+                print(f"Current password: {current_password}")
+                print(f"New password: {new_password}")
+                print(f"Confirm password: {confirm_password}")
+
+                if new_password == "":
+                        messagebox.showerror("Error", "New password cannot be empty!")
+                        return
+
+                if new_password != confirm_password:
+                        messagebox.showerror("Error", "New passwords do not match!")
+                        return
+
+                def save_password(new_password):
+
+                    with open("password.txt", "w") as file:
+                            file.write(new_password)
+
+                def get_stored_password():
+                            try:
+                                with open("password.txt", "r") as file:
+                                    return file.read().strip()
+                            except FileNotFoundError:
+                                return ""  
+                            
+                save_password(new_password)
+                messagebox.showinfo("Success", "Password changed successfully!")
+
+                def on_enter(e):
+                        current_password_entry.delete(0, 'end')
+
+                def on_leave(e):
+                        name=current_password_entry.get()
+                        if name == "":
+                            current_password_entry.insert(0,'Current Password')
+
+            change_in_label = Label(frame, text="Change Your Password", fg = "#57a1f8" , bg = "white" , font = ("Microsoft YaHei UI Light",40,"bold"))
+            change_in_label.place(x = 100 , y = 20)
+
+            def on_enter(e):
+                        current_password_entry.delete(0, 'end')
+
+            def on_leave(e):
+                        name=current_password_entry.get()
+                        if name == "":
+                            current_password_entry.insert(0,'New Psssword')
+
+            current_password_entry = Entry(frame, width=25 , fg="black" , border =0 , bg = "white" , font = ("Microsoft YaHei UI Light",22))
+            current_password_entry.place(x=200 , y = 187)
+            current_password_entry.insert(0, "Current Password")
+            current_password_entry.bind('<FocusIn>', on_enter)
+            current_password_entry.bind('<FocusOut>',on_leave)
+            Frame(frame, width=400,height=2,bg="black").place(x=200,y=230)
+
+            def on_enter(e):
+                        new_password_entry.delete(0, 'end')
+
+            def on_leave(e):
+                        name=new_password_entry.get()
+                        if name == "":
+                            new_password_entry.insert(0,'New Psssword')
+
+            new_password_entry = Entry(frame, width=25 , fg="black" , border =0 , bg = "white" , font = ("Microsoft YaHei UI Light",22))
+            new_password_entry.place(x=200 , y = 267)
+            new_password_entry.insert(0, "New Password")
+            new_password_entry.bind('<FocusIn>', on_enter)
+            new_password_entry.bind('<FocusOut>',on_leave)
+            Frame(frame, width=400,height=2,bg="black").place(x=200,y=310)
+
+            def on_enter(e):
+                            confirm_password_entry.delete(0, 'end')
+
+            def on_leave(e):
+                            name=confirm_password_entry.get()
+                            if name == "":
+                                confirm_password_entry.insert(0,'Confirm Password')
+
+            confirm_password_entry = Entry(frame, width=25 , fg="black" , border =0 , bg = "white" , font = ("Microsoft YaHei UI Light",22))
+            confirm_password_entry.place(x=200 , y = 347)
+            confirm_password_entry.insert(0, "Confirm your Password")
+            confirm_password_entry.bind('<FocusIn>', on_enter)
+            confirm_password_entry.bind('<FocusOut>',on_leave)
+            Frame(frame, width=400,height=2,bg="black").place(x=200,y=390)
+
+            change_button = Button(frame, text="Change Password", width=80 , height=2 , pady=7, bg="#57a1f8", fg = "white" , border=0 , command= change_password )
+            change_button.place(x=110 , y = 420)
+
+        def go_home():
+            setting.destroy()
+            root.deiconify()
+
+        change_pass_entry = Button(frame, text="Change your password", width=80 , height=3 , pady=7, bg="#57a1f8", fg = "white" , border=0  ,command= change_page )
+        change_pass_entry.place(x=110 , y = 100)
+
+        log_entry = Button(frame, text="Log out", width=80 , height=3 , pady=7, bg="#57a1f8", fg = "white" , border=0  ,command= go_home )
+        log_entry.place(x=110 , y = 240)
+
         setting.mainloop()
 
-    home_entry = Button(frame, width=7 ,text="Home", fg="black" , border =0 , bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",25) , justify="center",command=home)
-    home_entry.place(x=20 , y = 180)
-    Frame(frame, width=3,height=180,bg="black").place(x=97,y=0)
+    reminder_entry = Button(frame, text="Reminder", width=80 , height=3 , pady=7, bg="#57a1f8", fg = "white" , border=0  ,command= reminder )
+    reminder_entry.place(x=110 , y = 100)
 
-    reminder_entry = Button(frame, width=9 ,text="Reminder", fg="black" , border =0 , bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",25) , justify="center",command=reminder)
-    reminder_entry.place(x=190 , y = 320)
-    Frame(frame, width=3,height=320,bg="black").place(x=277,y=0)
 
-    history_entry = Button(frame, text="History",  width=7,  fg="black" , border =0 , bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",25) , justify="center", command=history)
-    history_entry.place(x=400 , y = 180)
-    Frame(frame, width=3,height=180,bg="black").place(x=470,y=0)
-
-    setting_entry = Button(frame,text="Setting" , width=7 , fg="black" , border =0 , bg = "#57a1f8" , font = ("Microsoft YaHei UI Light",25) , justify="center",command=setting)
-    setting_entry.place(x=620 , y = 320)
-    Frame(frame, width=3,height=320,bg="black").place(x=690,y=0)
+    setting_entry = Button(frame,text="Setting" , width=80 ,height=3, pady=7, bg="#57a1f8", fg = "white" , border=0 ,command=setting)
+    setting_entry.place(x=110 , y = 240)
 
     home_page.mainloop()
 
 def signin():
     username = username_entry.get()
-    password = current_password_entry.get()
+    entered_password = current_password_entry.get()
+    stored_password = get_stored_password()
 
-    if users.get(username) == password:
+    if users.get(username) and entered_password == get_stored_password():
         home_page()
 
     else:
