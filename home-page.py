@@ -1,7 +1,12 @@
 import tkinter
 from tkinter import *
 from tkinter import messagebox
+<<<<<<< HEAD
 from PIL import Image, ImageTk
+=======
+import json
+import re
+>>>>>>> 8bedff62d83876e943b942c516e9b8c220d4d81f
 
 
 
@@ -11,6 +16,20 @@ screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 root.geometry(f"{screen_width}x{screen_height}")
 root.minsize(400, 400)
+
+user_db_file = "users.json"
+
+def load_users():
+    try:
+        with open(user_db_file , "r") as file:
+            return json.load(file)
+        
+    except FileNotFoundError:
+        return{}
+
+def save_users(users):
+    with open(user_db_file , "w") as file:
+        json.dump(users , file)        
 
 image_path=PhotoImage(file=r"C:\Users\cis-c\OneDrive\Desktop\image\background_image.png")
 
@@ -32,6 +51,40 @@ def next_page(current_window):
 
     info_label = Label(frame, text="Enter your username and password", fg = "#57a1f8" , bg = "white" , font = ("Microsoft YaHei UI Light",32,"bold"))
     info_label.place(x = 25 )
+
+    def register():
+        username = username_entry.get()
+        password = password_entry.get()
+
+        if username == "" or password == "":
+            messagebox.showerror("Error" , "Username and password cannot be empty")
+            return
+        
+        if len(username) <=8 or not username.isalnum():
+            messagebox.showerror("Error" , "Username must be more that 8 alphanumeric characters and must contain one '_' character")
+            return
+
+        if username in users:
+            messagebox.showerror("Error" , "Username already exists")
+            return
+
+        if username == password:
+            messagebox.showerror("Error" , "Username and password cannot be same")
+            return
+        
+        if len(password) <= 8 or not (re.search(r"[A-Z]",password) and re.search(r"[a-z]",password) and re.search(r"\d",password) and re.search(r"[!@#$%^&*]",password)):
+            messagebox.showerror("Error", "Password must be 8 characters long and include:\n"
+                                            "- At least 1 uppercase letter\n"
+                                            "-Shouldn't contain any space\n"
+                                            "- At least 1 lowercase letter\n"
+                                            "- At least 1 digit\n"
+                                            "- At least 1 special character (@, $, !, %, *, ?, &)")
+            return
+
+        users[username] = password
+        save_users(users)
+        messagebox.showinfo("Success" , "User registered successfully")
+
 
     def on_enter(e):
         username_entry.delete(0, 'end')
@@ -75,6 +128,9 @@ def next_page(current_window):
 
     previous_button = Button(frame, text="Previous", width=25 , height=2 , pady=7, bg="#57a1f8", fg = "white" , border=0,command=go_back)
     previous_button.place(x=30, y=420)
+
+    register_button = Button(frame, text="Register" , width=25 , height=2 , pady=7 , bg = "#57a1f8" , fg = "white" , border=0 , command=register)
+    register_button.place(x=310 , y = 420)
 
     next_button = Button(frame, text="Next" , width=25 , height=2 , pady=7, bg="#57a1f8", fg = "white" , border=0,command=go_home)
     next_button.place(x=590 , y = 420)
@@ -269,11 +325,13 @@ def signin():
     username = username_entry.get()
     password = password_entry.get()
 
-    if username == "username" and password == "password":
+    if users.get(username) == password:
         home_page()
 
     else:
         messagebox.showerror("Invalid","Invalid username and password")
+
+users = load_users()
 
 bg_image=Label(root, image=image_path)
 bg_image.place(relheight=1,relwidth=1)
