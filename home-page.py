@@ -1,9 +1,6 @@
 import tkinter
 from tkinter import *
 from tkinter import messagebox
-<<<<<<< HEAD
-from PIL import Image, ImageTk
-=======
 import json
 import re
 import sqlite3
